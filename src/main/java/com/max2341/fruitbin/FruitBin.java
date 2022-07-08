@@ -57,7 +57,7 @@ public class FruitBin {
 			while(true) {
 				try {
 					if(on) {
-						if(Minecraft.getMinecraft().theWorld != null && Minecraft.getMinecraft().isSingleplayer() == false || isTesting) {
+						if(Minecraft.getMinecraft().theWorld != null && (Minecraft.getMinecraft().isSingleplayer() == false || isTesting)) {
 						HashMap<String, Float> lowestBins = Utils.scan(url, budget, minProfit, itemLowestBins);
 						if(lowestBins != null) {							
 							itemLowestBins = lowestBins;

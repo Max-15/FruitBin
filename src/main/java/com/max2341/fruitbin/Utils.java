@@ -41,7 +41,7 @@ public class Utils {
 	public enum Risk {NO, LOW, MEDIUM, HIGH}
 	public static float auctionListTax = 0.01f;
 	public static float auctionCollectTax = 0.01f;
-	public static boolean DEV_DEBUG = false;
+	public static boolean DEV_DEBUG = true;
 	
 	
 	public static void print(Object msg) {
