@@ -1,0 +1,21 @@
+{i: [
+        {id: 293s,
+         Count: 1b,
+         tag: {ench: [],
+               Unbreakable: 1b,
+               HideFlags: 254,
+               display: {Lore: [
+                    ],Name: "�dHeroic Reaper Scythe �6?�6?�6?�6?�6?"
+                },
+               ExtraAttributes: {
+                    rarity_upgrades: 1,hot_potato_count: 10,modifier: "heroic",dungeon_item_level: 5,necromancer_souls: [                    ],
+                    id: "REAPER_SCYTHE",enchantments: {impaling: 3,luck: 6,critical: 6,looting: 4,syphon: 4,telekinesis: 1,scavenger: 4,ender_slayer: 5,vampirism: 5,experience: 3,giant_killer: 5,first_strike: 4,venomous: 5,thunderlord: 6,ultimate_wise: 5,sharpness: 5,cubism: 5,lethality: 6,PROSECUTE: 5
+                    },
+                    uuid: "d384df76-3810-402d-8150-36e1cd19dbc4",timestamp: "3/18/22 9:42 PM"
+                }
+            },Damage: 0s
+        }
+    ]
+}
+
+i[0].tag.extraattr.id

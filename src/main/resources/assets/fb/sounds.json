@@ -1,0 +1,6 @@
+{
+"alerts.flipalert":{
+	"sounds":["alerts/flipalert"],
+	"category":"master"
+	}
+}

@@ -1,0 +1,16 @@
+[
+{
+  "modid": "fb",
+  "name": "FruitBin",
+  "description": "It's a bin of fruits.",
+  "version": "2.0",
+  "mcversion": "1.8.9",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Max2341"],
+  "credits": ":D",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
