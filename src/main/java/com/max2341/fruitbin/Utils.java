@@ -40,13 +40,13 @@ public class Utils {
 	public static Set<Character>numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
 	public static Set<Character>letters = new HashSet<Character>(Arrays.asList(new Character[] {' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}));
 	public static HashMap<String, Integer>itemAmounts = new HashMap<String, Integer>();
-	public static int lastTotalAuctions;
+	public static long lastResponseTimestamp;
 	static Pair<String, Long> bestAuctionIDAndProfit = new Pair<String, Long>("404", 0l);
 	public enum Risk {NO, LOW, MEDIUM, HIGH}
 	public static final float auctionListTax = 0.01f;
 	public static final float auctionCollectTax = 0.01f;
 	public static boolean DEV_DEBUG = true;
-	
+	public static long lastBinAuctionTimestamp = 0;
 	
 	private static Runnable sendFlipRunnable (IChatComponent component, final String id) {
 		return new Runnable(){
@@ -186,7 +186,7 @@ public class Utils {
 		int totalPages = 1;
 		HashMap<String, Float>itemLowestBins = new HashMap<String, Float>();
 		HashMap<String, Integer>newItemAmounts = new HashMap<String, Integer>();
-		lastTotalAuctions = 0;
+		lastResponseTimestamp = 0;
 			
 		try {
 			for(int page = 0; page < totalPages; page++) {
@@ -200,7 +200,9 @@ public class Utils {
 				for(AuctionItem auction : auctions.auctions) {
 					NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
 					String myID = getMyID(extraInfo);
-				
+					if(auction.bin)
+						lastBinAuctionTimestamp = Math.max(auction.start, lastBinAuctionTimestamp);
+					
 					if(itemLowestBins.containsKey(myID)) {
 						if(auction.starting_bid < itemLowestBins.get(myID)) {
 							itemLowestBins.put(myID, auction.starting_bid);
@@ -236,8 +238,8 @@ public class Utils {
 		HashMap<String, Float>newItemLowestBins = new HashMap<String, Float>();
 		HashMap<String, Integer>newItemAmounts = new HashMap<String, Integer>();
 		List<AuctionInfo> result = new ArrayList<AuctionInfo>();
-		int newAmountOfAuctions = 0;
-		
+		long newLastUpdated = 0;
+		int auctionsChecked = 0;
 		long startTime = System.currentTimeMillis();
 //		for(AuctionItem auction : prevAuctions) {
 //			
@@ -249,23 +251,31 @@ public class Utils {
 
 			int totalPages = 1;
 			int totalFlips = 0;
+			pageloop:
 			for(int page = 0; page < totalPages; page++) {
 				String newjson = Utils.getHTML(url + "?page=" + page);
 				Auctions newAuctions = gson.fromJson(newjson, Auctions.class);
 				totalPages = newAuctions.totalPages;
 				
 				if(page == 0) {
-					if(newAuctions.totalAuctions == lastTotalAuctions) {
+					newLastUpdated = newAuctions.lastUpdated;
+					if(newAuctions.lastUpdated == lastResponseTimestamp) {
 						if(FruitBin.showDebugMessages)
 							quickChatMsg("API not refreshed", ChatFormatting.RED);
-
 						return null;
 					}
 					if(FruitBin.showDebugMessages)
-						quickChatMsg("Started Filtering", ChatFormatting.GREEN);
+						quickChatMsg("Started Filtering " + (System.currentTimeMillis() - newAuctions.lastUpdated + "ms late"), ChatFormatting.GREEN);
 				}				
 
 				for (AuctionItem auction : newAuctions.auctions) {
+					auctionsChecked++;
+					if(auction.bin) {
+						lastBinAuctionTimestamp = Math.max(auction.start, lastBinAuctionTimestamp);
+						if(auction.start < lastBinAuctionTimestamp) {
+							break pageloop;
+						}
+					}
 					NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
 					if (auction.bin && auction.starting_bid <= budget && !auction.claimed) {
 						//HashMap<String, Integer> enchantments = (HashMap<String, Integer>) extraInfo.get("enchantments");
@@ -328,16 +338,14 @@ public class Utils {
 						int newValue = newItemAmounts.get(myID) + 1;
 						newItemAmounts.put(myID, newValue);
 					} else newItemAmounts.put(myID, 1);
-					newAmountOfAuctions++;
 				}
 			}
 			if(FruitBin.showDebugMessages)
-				quickChatMsg("Searched through " + newAmountOfAuctions + " auctions in " 
+				quickChatMsg("Searched through " + auctionsChecked + " auctions in " 
 						+ (System.currentTimeMillis() - startTime) / 1000f + "s and found " + totalFlips + " flips", ChatFormatting.GREEN);
 
-//			prevAuctions = theseAuctions;
 			itemAmounts = newItemAmounts;
-			lastTotalAuctions = newAmountOfAuctions;
+			lastResponseTimestamp = newLastUpdated;
 			return newItemLowestBins;
 			
 //			return auctionInfos.toArray(new AuctionInfo[auctionInfos.size()]);
