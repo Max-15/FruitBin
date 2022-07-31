@@ -15,10 +15,10 @@ import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-
 @Mod(modid = Reference.MODID, name = Reference.NAME, version = Reference.VERSION)
 
 public class FruitBin {
+	public static final int auctionGracePeriodMillis = 15000;
 	public static boolean isTesting = false;
 	public static Risk maxRisk = Risk.MEDIUM;
 	public static boolean showDebugMessages = true;
@@ -29,47 +29,55 @@ public class FruitBin {
 	public static float sleepSecondsBetweenApiUpdateChecks = 0.2f;
 	public static long budget = Integer.MAX_VALUE;
 	public static final String url = "https://api.hypixel.net/skyblock/auctions";
-	public static Minecraft mc;
+	public static String whatAmIDoing = "nothing";
+	public static boolean autoOpen = true;
 	@EventHandler
 	public static void preInit(FMLPreInitializationEvent event) {
 		Commands commands = new Commands();
 	}
 	@EventHandler
 	public static void init(FMLInitializationEvent event) {
-		mc = Minecraft.getMinecraft();
-		KeyMappings.register();
+//		KeyMappings.register();
 	}
 	@EventHandler
 	public static void postInit(FMLPostInitializationEvent event) {
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-			executor.schedule(scan, 15, TimeUnit.SECONDS);
+			executor.schedule(everything, 10, TimeUnit.SECONDS);
 	}
 	
-	static Runnable scan = new Runnable() {
+	static Runnable everything = new Runnable() {
 		public void run() {
 //			Utils.prevAuctions = Utils.initializeAuctions(url);
 			HashMap<String, Float> itemLowestBins= null;
 			try {
 				itemLowestBins = Utils.initializeAuctions(url);
-			} catch (IOException e1) {
-				Utils.print(e1);
+			} catch (Exception e) {
+				whatAmIDoing = "exception in initializing: " + e.toString();
+				if(showDebugMessages)
+					Utils.quickChatMsg("Exception while initializing auctions: " + e.toString(), ChatFormatting.RED);
 			}
 			while(true) {
 				try {
-					if(on) {
-						if(Minecraft.getMinecraft().theWorld != null && (Minecraft.getMinecraft().isSingleplayer() == false || isTesting)) {
+					whatAmIDoing = "nothing in while loop";
+					if(on && Minecraft.getMinecraft().theWorld != null || Minecraft.getMinecraft().isSingleplayer() == false || isTesting) {
+						whatAmIDoing = "scanning for flips";
 						HashMap<String, Float> lowestBins = Utils.scan(url, budget, minProfit, itemLowestBins);
 						if(lowestBins != null) {							
 							itemLowestBins = lowestBins;
+							whatAmIDoing = "sleeping after finding lowest bins";
 							Thread.sleep((int)(SleepSecondsBetweenScans * 1000));
 						} else {
+							whatAmIDoing = "sleeping after api check";
 							Thread.sleep((int)(sleepSecondsBetweenApiUpdateChecks * 1000));
 						}
-						} else {
-							Thread.sleep((2 * 1000));
-						}
-					}	
+					} else {
+						whatAmIDoing = "sleeping after on world or toggled check";
+						Thread.sleep((2 * 1000));
+					}
 				} catch (Throwable e) {
+					whatAmIDoing = "Exception in the forever loop: " + e.toString();
+					if(showDebugMessages)
+						Utils.quickChatMsg("Exception in the forever loop: " + e.toString(), ChatFormatting.RED);
 					Utils.print(e.toString());
 //					e.printStackTrace();
 				}

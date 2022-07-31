@@ -1,7 +1,9 @@
 package com.max2341.fruitbin;
 
 import com.max2341.fruitbin.Utils.Risk;
+import com.mojang.realmsclient.gui.ChatFormatting;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -15,14 +17,9 @@ public class Commands {
 	
 	SimpleCommand.ProcessCommandRunnable fruitbinCommandRun = new SimpleCommand.ProcessCommandRunnable() {
         public void processCommand(ICommandSender sender, String[] args) {
-        	if(args.length != 2) {
-        		if(!(args.length == 1 && (args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("toggle") || args[0].equalsIgnoreCase("debug")))) {
-        			if(args.length == 0)
-        				sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Commands: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <risk(low, medium, high, insane)>, /fb info, /fb toggle, /fb debug"));
-        			else
-        				sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <risk(low, medium, high, insane)>, /fb info, /fb toggle, /fb debug"));
-                	return;
-                }
+        	if(args.length == 0 || args[0].equalsIgnoreCase("help")) {
+        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <risk(low, medium, high, insane)>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao"));
+                return;
             }
         	if(args[0].equalsIgnoreCase("budget")) {
         		FruitBin.budget = Utils.GetUnabbreviatedString(args[1]);
@@ -85,6 +82,17 @@ public class Commands {
         		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "minProfit% = " + FruitBin.minProfitPercent));}
             	catch (Exception e) {
             		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Can't parse minProfit%: " + args[1]));
+            	}
+            } else if (args[0].equalsIgnoreCase("what")) {
+            	Utils.quickChatMsg(FruitBin.whatAmIDoing, ChatFormatting.AQUA);
+            } else if (args[0].equalsIgnoreCase("ao")) {
+            	if(FruitBin.autoOpen) {
+            		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Will now open flips."));
+            		FruitBin.autoOpen = false;
+            	}
+            	else {
+            		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Will no longer open flips."));
+            		FruitBin.autoOpen = true;
             	}
             }
         }

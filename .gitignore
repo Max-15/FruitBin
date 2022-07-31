@@ -1,0 +1,26 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+gradle/
+
+# other
+eclipse
+run
+CREDITS-fml.txt
+README.txt
+forge-1.8.9-11.15.1.2318-1.8.9-changelog.txt

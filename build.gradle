@@ -7,12 +7,14 @@ buildscript {
             url = "http://files.minecraftforge.net/maven"
         }
         jcenter()
+        
     }
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:2.1-SNAPSHOT'
     }
 }
 apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin : 'eclipse'
 
 /*
 // for people who want stable - not yet functional for MC 1.8.8 - we require the forgegradle 2.1 snapshot
@@ -20,10 +22,9 @@ plugins {
     id "net.minecraftforge.gradle.forge" version "2.0.2"
 }
 */
-version = "2.0"
-group= "com.max2341.fb" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+version = "2.1"
+group= "com.max2341.fruitbin" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "FruitBin"
-
 
 dependencies {
     compile 'com.google.code.gson:gson:2.9.0'

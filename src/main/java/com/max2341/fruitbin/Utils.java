@@ -13,6 +13,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
 import com.mojang.realmsclient.gui.ChatFormatting;
@@ -30,7 +33,6 @@ import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
-import scala.annotation.varargs;
 
 public class Utils {
 	public static Set<Character>numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
@@ -39,10 +41,23 @@ public class Utils {
 	public static int lastTotalAuctions;
 	static Pair<String, Integer> bestAuctionIDAndProfit = new Pair<String, Integer>("404", 0);
 	public enum Risk {NO, LOW, MEDIUM, HIGH}
-	public static float auctionListTax = 0.01f;
-	public static float auctionCollectTax = 0.01f;
+	public static final float auctionListTax = 0.01f;
+	public static final float auctionCollectTax = 0.01f;
 	public static boolean DEV_DEBUG = true;
 	
+	
+	private static Runnable sendFlipRunnable (IChatComponent component, final String id) {
+		return new Runnable(){
+			public void run() {
+				Minecraft.getMinecraft().thePlayer.addChatMessage(component);
+				if(FruitBin.autoOpen) {
+					EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
+					if(player != null)
+						player.sendChatMessage("/viewauction " + id);
+				}
+			}
+		};
+	}
 	
 	public static void print(Object msg) {
 		if(msg != null) {
@@ -58,16 +73,27 @@ public class Utils {
 			print("MC player is null");
 			return;
 		}
+		boolean gracePeriodOver = System.currentTimeMillis() >= auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis;
 		ChatFormatting itemColor = Utils.getColorByRarity(auctionInfo.auction.tier);
 		ChatFormatting riskColor = auctionInfo.risk == Risk.NO ? ChatFormatting.AQUA : auctionInfo.risk == Risk.LOW ? ChatFormatting.GREEN : auctionInfo.risk == Risk.MEDIUM ? ChatFormatting.GRAY : ChatFormatting.GRAY;
-		IChatComponent comp = new ChatComponentText(itemColor + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
-				" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " + riskColor + auctionInfo.risk.toString().toUpperCase() + " RISK");
+		String timestampText = ChatFormatting.DARK_GRAY + (Math.round((float)(System.currentTimeMillis() - auctionInfo.auction.start)/1000f * 100)/100 + "s ago ");
+		if(!gracePeriodOver)
+			timestampText = "SNIPE! ";
+		IChatComponent comp = new ChatComponentText(
+				timestampText + ChatFormatting.RESET + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
+				" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " 
+				+ riskColor + auctionInfo.amountListed + " listed (" + auctionInfo.risk.toString().toLowerCase() + " risk)");
 		ChatStyle style = Utils.createClickStyle(ClickEvent.Action.RUN_COMMAND, "/viewauction " + auctionInfo.auction.uuid);
 		comp.setChatStyle(style);
-		player.addChatMessage(comp);
+		if(gracePeriodOver){
+			player.addChatMessage(comp);
+		} else {
+			ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+		}
 		print("FOUND FLIP! " + auctionInfo.auction.item_name + " " + auctionInfo.price + " -> " + auctionInfo.lowestBin);
 	}
-	
+	//Minecraft.getMinecraft().thePlayer.currentScreen == null
 	public static long GetUnabbreviatedString(String string) {
 		float number;
 		long multiplier;
@@ -145,44 +171,52 @@ public class Utils {
 	static String getFlipSound() {
 		return Reference.MODID + ":alerts.flipalert";
 	}
-	public static HashMap<String, Float> initializeAuctions(String url) throws IOException {
+	public static HashMap<String, Float> initializeAuctions(String url) throws Exception {
+		
 		int totalPages = 1;
 		HashMap<String, Float>itemLowestBins = new HashMap<String, Float>();
 		HashMap<String, Integer>newItemAmounts = new HashMap<String, Integer>();
 		lastTotalAuctions = 0;
-		
-		for(int page = 0; page < totalPages; page++) {
-			String json = null;
-			try {
-				json = Utils.getHTML(url + "?page=" + page);
-			} catch (IOException e) {
-				print(e.toString());
-			}
-			Gson gson = new Gson();
-			Auctions auctions = gson.fromJson(json, Auctions.class);
 			
-			totalPages = auctions.totalPages;
-			for(AuctionItem auction : auctions.auctions) {
-				NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
-				String myID = getMyID(extraInfo);
+		try {
+			for(int page = 0; page < totalPages; page++) {
+				String json = null;
+				FruitBin.whatAmIDoing = "initializing auctions, page " + page;
+				json = Utils.getHTML(url + "?page=" + page);
+				Gson gson = new Gson();
+				Auctions auctions = gson.fromJson(json, Auctions.class);
+			
+				totalPages = auctions.totalPages;
+				for(AuctionItem auction : auctions.auctions) {
+					NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
+					String myID = getMyID(extraInfo);
 				
-				if(itemLowestBins.containsKey(myID)) {
-					if(auction.starting_bid < itemLowestBins.get(myID)) {
+					if(itemLowestBins.containsKey(myID)) {
+						if(auction.starting_bid < itemLowestBins.get(myID)) {
+							itemLowestBins.put(myID, auction.starting_bid);
+						}
+					}
+					else {
 						itemLowestBins.put(myID, auction.starting_bid);
 					}
+					if(newItemAmounts.containsKey(myID)) {
+						int newValue = newItemAmounts.get(myID) + 1;
+						newItemAmounts.put(myID, newValue);
+					} else newItemAmounts.put(myID, 1);
 				}
-				else {
-					itemLowestBins.put(myID, auction.starting_bid);
-				}
-				if(newItemAmounts.containsKey(myID)) {
-					int newValue = newItemAmounts.get(myID) + 1;
-					newItemAmounts.put(myID, newValue);
-				} else newItemAmounts.put(myID, 1);
+				if(FruitBin.showDebugMessages)
+					quickChatMsg("Finished page " + page + " of initializing auctions.", ChatFormatting.GREEN);
 			}
+			itemAmounts = newItemAmounts;
+			if(FruitBin.showDebugMessages)
+				quickChatMsg("Initialized Auctions", ChatFormatting.GREEN);
+		} catch (Throwable t) {
+			FruitBin.whatAmIDoing = "exception in initializing: " + t.toString();
+			if(FruitBin.showDebugMessages)
+				quickChatMsg("Exception while initializing auctions: " + t.toString(), ChatFormatting.RED);
+			print(t);
+
 		}
-		itemAmounts = newItemAmounts;
-		if(FruitBin.showDebugMessages)
-			quickChatMsg("Initialized Auctions", ChatFormatting.GREEN);
 		return itemLowestBins;
 	}
 	
@@ -254,16 +288,16 @@ public class Utils {
 							else 
 								risk = Risk.NO;
 							if (risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
-								AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), auction.starting_bid, itemLowestBins.get(myID), risk);
+								AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), auction.starting_bid, itemLowestBins.get(myID), amount, risk);
 //								auctionInfos.add(info);
 								if(info.profit > bestAuctionIDAndProfit.value) {
 									bestAuctionIDAndProfit.key = auction.uuid;
 									bestAuctionIDAndProfit.value = info.profit;
 								}
-								if(totalFlips < 3) {
-									ISound sound = new PositionedSound(new ResourceLocation(getFlipSound())){};
-									Minecraft.getMinecraft().getSoundHandler().playSound(sound);
-								}
+//								if(totalFlips < 3) {
+//									ISound sound = new PositionedSound(new ResourceLocation(getFlipSound())){};
+//									Minecraft.getMinecraft().getSoundHandler().playSound(sound);
+//								}
 								totalFlips++;
 								sendFlip(info);
 							}
