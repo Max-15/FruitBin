@@ -26,6 +26,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.ISound;
 import net.minecraft.client.audio.PositionedSound;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.event.ClickEvent;
 import net.minecraft.event.HoverEvent;
 import net.minecraft.util.ChatComponentText;
@@ -39,7 +41,7 @@ public class Utils {
 	public static Set<Character>letters = new HashSet<Character>(Arrays.asList(new Character[] {' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}));
 	public static HashMap<String, Integer>itemAmounts = new HashMap<String, Integer>();
 	public static int lastTotalAuctions;
-	static Pair<String, Integer> bestAuctionIDAndProfit = new Pair<String, Integer>("404", 0);
+	static Pair<String, Long> bestAuctionIDAndProfit = new Pair<String, Long>("404", 0l);
 	public enum Risk {NO, LOW, MEDIUM, HIGH}
 	public static final float auctionListTax = 0.01f;
 	public static final float auctionCollectTax = 0.01f;
@@ -52,7 +54,8 @@ public class Utils {
 				Minecraft.getMinecraft().thePlayer.addChatMessage(component);
 				if(FruitBin.autoOpen) {
 					EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
-					if(player != null)
+					final GuiScreen guiScreen = Minecraft.getMinecraft().currentScreen;
+					if(player != null && (guiScreen == null || guiScreen instanceof GuiChat))
 						player.sendChatMessage("/viewauction " + id);
 				}
 			}
@@ -78,7 +81,7 @@ public class Utils {
 		ChatFormatting riskColor = auctionInfo.risk == Risk.NO ? ChatFormatting.AQUA : auctionInfo.risk == Risk.LOW ? ChatFormatting.GREEN : auctionInfo.risk == Risk.MEDIUM ? ChatFormatting.GRAY : ChatFormatting.GRAY;
 		String timestampText = ChatFormatting.DARK_GRAY + (Math.round((float)(System.currentTimeMillis() - auctionInfo.auction.start)/1000f * 100)/100 + "s ago ");
 		if(!gracePeriodOver)
-			timestampText = "SNIPE! ";
+			timestampText = ChatFormatting.GOLD + "SNIPE! ";
 		IChatComponent comp = new ChatComponentText(
 				timestampText + ChatFormatting.RESET + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
 				" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " 
@@ -87,9 +90,16 @@ public class Utils {
 		comp.setChatStyle(style);
 		if(gracePeriodOver){
 			player.addChatMessage(comp);
+			
+			if(FruitBin.autoOpen) {
+				final GuiScreen guiScreen = Minecraft.getMinecraft().currentScreen;
+				if(player != null && (guiScreen == null || guiScreen instanceof GuiChat))
+					player.sendChatMessage("/viewauction " + auctionInfo.auction.uuid);
+			}
+			
 		} else {
 			ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis() + Math.round((Math.random() / 4.215 + 0.15) * 1000), TimeUnit.MILLISECONDS);
 		}
 		print("FOUND FLIP! " + auctionInfo.auction.item_name + " " + auctionInfo.price + " -> " + auctionInfo.lowestBin);
 	}

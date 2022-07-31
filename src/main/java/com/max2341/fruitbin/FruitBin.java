@@ -20,17 +20,17 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 public class FruitBin {
 	public static final int auctionGracePeriodMillis = 15000;
 	public static boolean isTesting = false;
-	public static Risk maxRisk = Risk.MEDIUM;
-	public static boolean showDebugMessages = true;
+	public static Risk maxRisk = Risk.HIGH;
+	public static boolean showDebugMessages = false;
 	public static boolean on = true;
-	public static int minProfit = 200000;
-	public static int minProfitPercent = 5;
+	public static int minProfit = 2500000;
+	public static int minProfitPercent = 90;
 	public static float SleepSecondsBetweenScans = 0;
 	public static float sleepSecondsBetweenApiUpdateChecks = 0.2f;
 	public static long budget = Integer.MAX_VALUE;
 	public static final String url = "https://api.hypixel.net/skyblock/auctions";
 	public static String whatAmIDoing = "nothing";
-	public static boolean autoOpen = true;
+	public static boolean autoOpen = false;
 	@EventHandler
 	public static void preInit(FMLPreInitializationEvent event) {
 		Commands commands = new Commands();

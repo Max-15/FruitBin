@@ -3,7 +3,7 @@
   "modid": "fruitbin",
   "name": "FruitBin",
   "description": "It's a bin of fruits.",
-  "version": "2.1",
+  "version": "2.2.1",
   "mcversion": "1.8.9",
   "url": "",
   "updateUrl": "",

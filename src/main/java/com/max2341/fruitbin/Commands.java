@@ -18,7 +18,7 @@ public class Commands {
 	SimpleCommand.ProcessCommandRunnable fruitbinCommandRun = new SimpleCommand.ProcessCommandRunnable() {
         public void processCommand(ICommandSender sender, String[] args) {
         	if(args.length == 0 || args[0].equalsIgnoreCase("help")) {
-        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <risk(low, medium, high, insane)>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao"));
+        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <low, medium, high, insane>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao, /fb profile <snipe, full>, <budget>"));
                 return;
             }
         	if(args[0].equalsIgnoreCase("budget")) {
@@ -41,6 +41,7 @@ public class Commands {
             	sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "delay: " + FruitBin.SleepSecondsBetweenScans));
             	sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "maxRisk: " + FruitBin.maxRisk));
             	sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "on: " + FruitBin.on));
+            	sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "ao: " + FruitBin.autoOpen));
             	sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "debug: " + FruitBin.showDebugMessages));
             } else if(args[0].equalsIgnoreCase("toggle")){
             	if(FruitBin.on) {
@@ -79,21 +80,42 @@ public class Commands {
             } else if (args[0].equalsIgnoreCase("minprofit%")) {
             	try {
         		FruitBin.minProfitPercent = Integer.parseInt(args[1]);
-        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "minProfit% = " + FruitBin.minProfitPercent));}
+        		sender.addChatMessage(new ChatComponentText(ChatFormatting.GREEN + "minProfit% = " + FruitBin.minProfitPercent));}
             	catch (Exception e) {
-            		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Can't parse minProfit%: " + args[1]));
+            		sender.addChatMessage(new ChatComponentText(ChatFormatting.RED + "Can't parse minProfit%: " + args[1]));
             	}
             } else if (args[0].equalsIgnoreCase("what")) {
             	Utils.quickChatMsg(FruitBin.whatAmIDoing, ChatFormatting.AQUA);
             } else if (args[0].equalsIgnoreCase("ao")) {
-            	if(FruitBin.autoOpen) {
-            		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Will now open flips."));
-            		FruitBin.autoOpen = false;
-            	}
-            	else {
-            		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Will no longer open flips."));
+            	if(!FruitBin.autoOpen) {
+            		sender.addChatMessage(new ChatComponentText(ChatFormatting.RED + "AO is ON."));
             		FruitBin.autoOpen = true;
             	}
+            	else {
+            		sender.addChatMessage(new ChatComponentText(ChatFormatting.GREEN + "AO is off."));
+            		FruitBin.autoOpen = false;
+            	}
+            } else if (args[0].equalsIgnoreCase("profile")) {
+            	
+            	if(args[1].equalsIgnoreCase("snipe")) {
+            		FruitBin.budget = Utils.GetUnabbreviatedString(args[2]);
+            		FruitBin.autoOpen = true;
+            		FruitBin.minProfit = 2500000;
+            		FruitBin.minProfitPercent = 90;
+            		FruitBin.maxRisk = Risk.HIGH;
+            		FruitBin.on = true;
+            	} else if (args[1].equalsIgnoreCase("full")) {
+            		FruitBin.budget = Utils.GetUnabbreviatedString(args[2]);
+            		FruitBin.autoOpen = false;
+            		FruitBin.minProfit = 250000;
+            		FruitBin.minProfitPercent = 5;
+            		FruitBin.maxRisk = Risk.HIGH;
+            		FruitBin.on = true;
+            	} else {
+                	sender.addChatMessage(new ChatComponentText(ChatFormatting.RED + "Invalid profile: " + args[1].toUpperCase() + "."));
+            		return;
+            	}
+            	sender.addChatMessage(new ChatComponentText(ChatFormatting.GREEN + "Set profile to " + args[1].toUpperCase() + "."));
             }
         }
     };

@@ -15,7 +15,7 @@ public class AuctionInfo {
 	 }
 
 	AuctionItem auction;
-	int profit;
+	long profit;
 	int profitPercent;
 	float price;
 	float lowestBin;
