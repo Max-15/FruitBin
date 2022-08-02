@@ -15,6 +15,7 @@ import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+
 @Mod(modid = Reference.MODID, name = Reference.NAME, version = Reference.VERSION)
 
 public class FruitBin {
@@ -31,44 +32,48 @@ public class FruitBin {
 	public static final String url = "https://api.hypixel.net/skyblock/auctions";
 	public static String whatAmIDoing = "nothing";
 	public static boolean autoOpen = false;
+
 	@EventHandler
 	public static void preInit(FMLPreInitializationEvent event) {
 		Commands commands = new Commands();
 	}
+
 	@EventHandler
 	public static void init(FMLInitializationEvent event) {
 //		KeyMappings.register();
 	}
+
 	@EventHandler
 	public static void postInit(FMLPostInitializationEvent event) {
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-			executor.schedule(everything, 10, TimeUnit.SECONDS);
+		executor.schedule(everything, 10, TimeUnit.SECONDS);
 	}
-	
+
 	static Runnable everything = new Runnable() {
 		public void run() {
 //			Utils.prevAuctions = Utils.initializeAuctions(url);
-			HashMap<String, Float> itemLowestBins= null;
+			HashMap<String, Float> itemLowestBins = null;
 			try {
 				itemLowestBins = Utils.initializeAuctions(url);
 			} catch (Exception e) {
 				whatAmIDoing = "exception in initializing: " + e.toString();
-				if(showDebugMessages)
+				if (showDebugMessages)
 					Utils.quickChatMsg("Exception while initializing auctions: " + e.toString(), ChatFormatting.RED);
 			}
-			while(true) {
+			while (true) {
 				try {
 					whatAmIDoing = "nothing in while loop";
-					if(on && Minecraft.getMinecraft().theWorld != null || Minecraft.getMinecraft().isSingleplayer() == false || isTesting) {
+					if (on && Minecraft.getMinecraft().theWorld != null
+							|| Minecraft.getMinecraft().isSingleplayer() == false || isTesting) {
 						whatAmIDoing = "scanning for flips";
 						HashMap<String, Float> lowestBins = Utils.scan(url, budget, minProfit, itemLowestBins);
-						if(lowestBins != null) {							
+						if (lowestBins != null) {
 							itemLowestBins = lowestBins;
 							whatAmIDoing = "sleeping after finding lowest bins";
-							Thread.sleep((int)(SleepSecondsBetweenScans * 1000));
+							Thread.sleep((int) (SleepSecondsBetweenScans * 1000));
 						} else {
 							whatAmIDoing = "sleeping after api check";
-							Thread.sleep((int)(sleepSecondsBetweenApiUpdateChecks * 1000));
+							Thread.sleep((int) (sleepSecondsBetweenApiUpdateChecks * 1000));
 						}
 					} else {
 						whatAmIDoing = "sleeping after on world or toggled check";
@@ -76,7 +81,7 @@ public class FruitBin {
 					}
 				} catch (Throwable e) {
 					whatAmIDoing = "Exception in the forever loop: " + e.toString();
-					if(showDebugMessages)
+					if (showDebugMessages)
 						Utils.quickChatMsg("Exception in the forever loop: " + e.toString(), ChatFormatting.RED);
 					Utils.print(e.toString());
 //					e.printStackTrace();
