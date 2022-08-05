@@ -83,7 +83,7 @@ public class Utils {
 		ChatFormatting riskColor = auctionInfo.risk == Risk.NO ? ChatFormatting.AQUA : auctionInfo.risk == Risk.LOW ? ChatFormatting.GREEN : auctionInfo.risk == Risk.MEDIUM ? ChatFormatting.GRAY : ChatFormatting.GRAY;
 		String timestampText = ChatFormatting.DARK_GRAY + (Math.round((float)(System.currentTimeMillis() - auctionInfo.auction.start)/1000f * 100)/100 + "s ago ");
 		if(!gracePeriodOver)
-			timestampText = ChatFormatting.GOLD + "SNIPE! ";
+			timestampText = "§6§lSNIPE! ";
 		IChatComponent comp = new ChatComponentText(
 				timestampText + ChatFormatting.RESET + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
 				" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " 
@@ -288,9 +288,6 @@ public class Utils {
 						}	
 					}
 					for (AuctionItem auction : newAuctions.auctions) {
-						if(FruitBin.showDebugMessages)
-							quickChatMsg(auction.item_name + " " + ChatFormatting.GOLD + GetAbbreviatedFloat(auction.starting_bid) + 
-								(auction.bin ? (ChatFormatting.AQUA + " BIN") : ""), getColorByRarity(auction.tier));
 						auctionsChecked++;
 						if(auction.bin) {
 							maxBinAuctionTimestamp = Math.max(auction.start, maxBinAuctionTimestamp);
