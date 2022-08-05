@@ -1,6 +1,8 @@
 package com.max2341.fruitbin;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -35,7 +37,6 @@ import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
-import scala.annotation.varargs;
 
 public class Utils {
 	public static Set<Character>numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
@@ -203,20 +204,14 @@ public class Utils {
 					String myID = getMyID(extraInfo);
 					if(auction.bin) {
 						lastBinAuctionTimestamp = Math.max(auction.start, lastBinAuctionTimestamp);
-					
-						if(itemLowestBins.containsKey(myID)) {
-							if(auction.starting_bid < itemLowestBins.get(myID)) {
-								itemLowestBins.put(myID, auction.starting_bid);
-							}
-						}
-						else {
+						
+						if(!itemLowestBins.containsKey(myID) || auction.starting_bid < itemLowestBins.get(myID))
 							itemLowestBins.put(myID, auction.starting_bid);
-						}
-					}
-					if(newItemAmounts.containsKey(myID)) {
-						int newValue = newItemAmounts.get(myID) + 1;
+						
+						Integer itemsSoFar = newItemAmounts.get(myID);
+						int newValue = (itemsSoFar != null ? itemsSoFar : 0) + 1; 
 						newItemAmounts.put(myID, newValue);
-					} else newItemAmounts.put(myID, 1);
+					}
 				}
 				if(FruitBin.showDebugMessages)
 					quickChatMsg("Finished page " + page + " of initializing auctions.", ChatFormatting.GREEN);
@@ -239,15 +234,10 @@ public class Utils {
 	}
 	public static float getProfitPercent(float buyPrice, float sellPrice) {
 		sellPrice = sellPrice * (1 - auctionListTax - ((sellPrice >= 1000000) ? auctionCollectTax : 0)) - 100;
-		float profitPercent = ((sellPrice / buyPrice) - 1) * 100;
-		return sellPrice - buyPrice;
+		return ((sellPrice / buyPrice) - 1) * 100;
 	}
 	
 	public static HashMap<String, Float> scan(String url, long budget, int minProfit, HashMap<String, Float> itemLowestBins) {
-		if(FruitBin.showDebugMessages)
-			quickChatMsg("Scan called", ChatFormatting.GREEN);
-		HashMap<String, Float>newItemLowestBins = new HashMap<String, Float>();
-		HashMap<String, Integer>newItemAmounts = new HashMap<String, Integer>();
 		List<AuctionInfo> result = new ArrayList<AuctionInfo>();
 		long newLastUpdated = 0;
 		int auctionsChecked = 0;
@@ -258,40 +248,52 @@ public class Utils {
 		
 		try {
 			Gson gson = new Gson();
-//			List<AuctionInfo>auctionInfos = new ArrayList<AuctionInfo>();
 
 			int totalPages = 1;
 			int totalFlips = 0;
-			try (java.io.Writer w = new java.io.FileWriter("C:/Max/skyblock-auctions.csv")) {
+			FileWriter w = null;
+			long maxBinAuctionTimestamp = lastBinAuctionTimestamp;
+			try {
 				pageloop:
 				for(int page = 0; page < totalPages; page++) {
 					String newjson = Utils.getHTML(url + "?page=" + page);
 					Auctions newAuctions = gson.fromJson(newjson, Auctions.class);
-					for (AuctionItem auction: newAuctions.auctions) {
-						if (auction.bin) {
-							Float lowestBin = itemLowestBins.get(getMyID(NBTReader.readBase64(auction.item_bytes)));
-							w.write("" + auction.item_name + "," + auction.starting_bid + "," +
-									lowestBin + "," + getProfit(auction.starting_bid, lowestBin) +
-									"," + getProfitPercent(auction.starting_bid, lowestBin));
-						}	
-					}
+					
 					totalPages = newAuctions.totalPages;
 					
 					if(page == 0) {
 						newLastUpdated = newAuctions.lastUpdated;
 						if(newAuctions.lastUpdated == lastResponseTimestamp) {
-							if(FruitBin.showDebugMessages)
-								quickChatMsg("API not refreshed", ChatFormatting.RED);
 							return null;
 						}
+						w = new java.io.FileWriter("C:/Max/skyblock-auctions-" + System.currentTimeMillis() + ".csv");
+						w.write("Last Updated,ID,Name,Price,Lowest BIN,Profit,Profit%\n");
 						if(FruitBin.showDebugMessages)
 							quickChatMsg("Started Filtering " + (System.currentTimeMillis() - newAuctions.lastUpdated + "ms late"), ChatFormatting.GREEN);
 					}				
-	
+					for (AuctionItem auction: newAuctions.auctions) {
+						if (auction.bin) {
+							final String myId = getMyID(NBTReader.readBase64(auction.item_bytes));
+							Float lowestBin = itemLowestBins.get(myId);
+							if (lowestBin == null)
+								lowestBin = Float.NEGATIVE_INFINITY;
+							w.write("" +
+								auction.last_updated + "," +
+								myId + "," +
+							    auction.item_name + "," +
+								auction.starting_bid + "," +
+							    lowestBin + "," +
+								getProfit(auction.starting_bid, lowestBin) + "," +
+							    getProfitPercent(auction.starting_bid, lowestBin) + "\n");
+						}	
+					}
 					for (AuctionItem auction : newAuctions.auctions) {
+						if(FruitBin.showDebugMessages)
+							quickChatMsg(auction.item_name + " " + ChatFormatting.GOLD + GetAbbreviatedFloat(auction.starting_bid) + 
+								(auction.bin ? (ChatFormatting.AQUA + " BIN") : ""), getColorByRarity(auction.tier));
 						auctionsChecked++;
 						if(auction.bin) {
-							lastBinAuctionTimestamp = Math.max(auction.start, lastBinAuctionTimestamp);
+							maxBinAuctionTimestamp = Math.max(auction.start, maxBinAuctionTimestamp);
 							if(auction.start < lastBinAuctionTimestamp) {
 								break pageloop;
 							}
@@ -306,29 +308,23 @@ public class Utils {
 							float minPrice;
 							if(itemLowestBins.containsKey(myID))
 								minPrice = itemLowestBins.get(myID);
-							else minPrice = 0;
+							else {
+								itemLowestBins.put(myID, auction.starting_bid);
+								minPrice = auction.starting_bid;
+							}
 							
 							int profit = (int)getProfit(auction.starting_bid, minPrice);
 							
 							float profitPercent = getProfitPercent(auction.starting_bid, minPrice);
 							if (profit >= minProfit && profitPercent >= FruitBin.minProfitPercent) {
-								Risk risk;
-								int amount;
-								if (itemAmounts.containsKey(myID))
-									amount = itemAmounts.get(myID);
-								else
-									amount = 0;
-								if (amount < 5) 
-									risk = Risk.HIGH;
-								else if (amount < 25)
-									risk = Risk.MEDIUM;
-								else if (amount < 100) 
-									risk = Risk.LOW;
-								else 
-									risk = Risk.NO;
+								final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
+								final Risk risk =
+									amount < 5   ? Risk.HIGH :
+									amount < 20  ? Risk.MEDIUM :
+									amount < 100 ? Risk.LOW :
+										           Risk.NO;
 								if (risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
 									AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), auction.starting_bid, itemLowestBins.get(myID), amount, risk);
-	//								auctionInfos.add(info);
 									if(info.profit > bestAuctionIDAndProfit.value) {
 										bestAuctionIDAndProfit.key = auction.uuid;
 										bestAuctionIDAndProfit.value = info.profit;
@@ -345,39 +341,36 @@ public class Utils {
 						//LOWESTBIN & ITEMAMOUNTS
 						String myID = getMyID(extraInfo);
 						if(auction.bin) {
-							if(newItemLowestBins.containsKey(myID)) {
-								if(auction.starting_bid < newItemLowestBins.get(myID)) {
-									newItemLowestBins.put(myID, auction.starting_bid);
-								}
+							if(!itemLowestBins.containsKey(myID) || auction.starting_bid < itemLowestBins.get(myID))
+								itemLowestBins.put(myID, auction.starting_bid);
+							
+							if(itemAmounts.containsKey(myID)) {
+								int newValue = itemAmounts.get(myID) + 1;
+								itemAmounts.put(myID, newValue);
 							}
-						
-							else {
-								newItemLowestBins.put(myID, auction.starting_bid);
-							}
+							else
+								itemAmounts.put(myID, 1);
 						}
-						if(newItemAmounts.containsKey(myID)) {
-							int newValue = newItemAmounts.get(myID) + 1;
-							newItemAmounts.put(myID, newValue);
-						} else newItemAmounts.put(myID, 1);
 					}
 				}
 			}
-			if(FruitBin.showDebugMessages)
+			finally {
+				lastBinAuctionTimestamp = maxBinAuctionTimestamp;
+				if (w != null)
+					w.close();
+			}
+			if(FruitBin.showDebugMessages) {
 				quickChatMsg("Searched through " + auctionsChecked + " auctions in " 
 						+ (System.currentTimeMillis() - startTime) / 1000f + "s and found " + totalFlips + " flips", ChatFormatting.GREEN);
-
-			itemAmounts = newItemAmounts;
+			}
 			lastResponseTimestamp = newLastUpdated;
-			return newItemLowestBins;
-			
-//			return auctionInfos.toArray(new AuctionInfo[auctionInfos.size()]);
 		} catch (Exception e) {
 			if(FruitBin.showDebugMessages)
 				quickChatMsg("EXCEPTION: " + e, ChatFormatting.RED);
 			print("EXCEPTION: " + e);
 			e.printStackTrace();
-			return itemLowestBins;
 		}
+		return itemLowestBins;
 	}
 	public static void openBestAuction() {
 		EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;

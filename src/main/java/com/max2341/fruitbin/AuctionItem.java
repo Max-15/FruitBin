@@ -5,6 +5,7 @@ public class AuctionItem {
 	public String auctioneer;
 	public String profile_id;
 	public String[] coop;
+	public long last_updated;
 	public long start;
 	public long end;
 	public String item_name;

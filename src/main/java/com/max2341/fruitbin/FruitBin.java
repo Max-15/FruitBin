@@ -22,7 +22,7 @@ public class FruitBin {
 	public static final int auctionGracePeriodMillis = 15000;
 	public static boolean isTesting = false;
 	public static Risk maxRisk = Risk.HIGH;
-	public static boolean showDebugMessages = false;
+	public static boolean showDebugMessages = true;
 	public static boolean on = true;
 	public static int minProfit = 2500000;
 	public static int minProfitPercent = 90;
