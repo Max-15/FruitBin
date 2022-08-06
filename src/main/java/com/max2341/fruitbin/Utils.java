@@ -39,9 +39,9 @@ import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 
 public class Utils {
-	public static Set<Character>numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
-	public static Set<Character>letters = new HashSet<Character>(Arrays.asList(new Character[] {' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}));
-	public static HashMap<String, Integer>itemAmounts = new HashMap<String, Integer>();
+	public static Set<Character> numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
+	public static Set<Character> letters = new HashSet<Character>(Arrays.asList(new Character[] {' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}));
+	public static HashMap<String, Integer> itemAmounts = new HashMap<String, Integer>();
 	public static long lastResponseTimestamp;
 	static Pair<String, Long> bestAuctionIDAndProfit = new Pair<String, Long>("404", 0l);
 	public enum Risk {NO, LOW, MEDIUM, HIGH}
@@ -251,7 +251,6 @@ public class Utils {
 
 			int totalPages = 1;
 			int totalFlips = 0;
-			FileWriter w = null;
 			long maxBinAuctionTimestamp = lastBinAuctionTimestamp;
 			try {
 				pageloop:
@@ -266,8 +265,6 @@ public class Utils {
 						if(newAuctions.lastUpdated == lastResponseTimestamp) {
 							return null;
 						}
-						w = new java.io.FileWriter("C:/Max/skyblock-auctions-" + System.currentTimeMillis() + ".csv");
-						w.write("Last Updated,ID,Name,Price,Lowest BIN,Profit,Profit%\n");
 						if(FruitBin.showDebugMessages)
 							quickChatMsg("Started Filtering " + (System.currentTimeMillis() - newAuctions.lastUpdated + "ms late"), ChatFormatting.GREEN);
 					}				
@@ -277,14 +274,6 @@ public class Utils {
 							Float lowestBin = itemLowestBins.get(myId);
 							if (lowestBin == null)
 								lowestBin = Float.NEGATIVE_INFINITY;
-							w.write("" +
-								auction.last_updated + "," +
-								myId + "," +
-							    auction.item_name + "," +
-								auction.starting_bid + "," +
-							    lowestBin + "," +
-								getProfit(auction.starting_bid, lowestBin) + "," +
-							    getProfitPercent(auction.starting_bid, lowestBin) + "\n");
 						}	
 					}
 					for (AuctionItem auction : newAuctions.auctions) {
@@ -353,8 +342,6 @@ public class Utils {
 			}
 			finally {
 				lastBinAuctionTimestamp = maxBinAuctionTimestamp;
-				if (w != null)
-					w.close();
 			}
 			if(FruitBin.showDebugMessages) {
 				quickChatMsg("Searched through " + auctionsChecked + " auctions in " 

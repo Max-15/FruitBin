@@ -13,8 +13,16 @@ import net.minecraftforge.common.config.Configuration;
 public class Commands {
 	public Commands() {
 		ClientCommandHandler.instance.registerCommand(fruitbinCommand);
+//		ClientCommandHandler.instance.registerCommand(getFlipsCommand);
 	}
-	
+//	SimpleCommand.ProcessCommandRunnable getFlipsCommandRun = new SimpleCommand.ProcessCommandRunnable() {
+//        public void processCommand(ICommandSender sender, String[] args) {
+//        	if(args.length == 0) {
+//        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <low, medium, high, insane>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao, /fb profile <snipe, full>, <budget>"));
+//                return;
+//            }
+//        }
+//	}
 	SimpleCommand.ProcessCommandRunnable fruitbinCommandRun = new SimpleCommand.ProcessCommandRunnable() {
         public void processCommand(ICommandSender sender, String[] args) {
         	if(args.length == 0 || args[0].equalsIgnoreCase("help")) {
@@ -119,6 +127,6 @@ public class Commands {
             }
         }
     };
-    
+//    SimpleCommand getFlipsCommand = new SimpleCommand("flips", getFlipsCommandRun);
 	SimpleCommand fruitbinCommand = new SimpleCommand("fb", fruitbinCommandRun);
 }
