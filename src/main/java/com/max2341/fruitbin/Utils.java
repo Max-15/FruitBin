@@ -302,7 +302,7 @@ public class Utils {
 							int profit = (int)getProfit(auction.starting_bid, minPrice);
 							
 							float profitPercent = getProfitPercent(auction.starting_bid, minPrice);
-							if (profit >= minProfit && profitPercent >= FruitBin.minProfitPercent) {
+							if (profit >= minProfit && profitPercent >= FruitBin.minProfitPercent && !auction.item_lore.contains("§8Furniture")) {
 								final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
 								final Risk risk =
 									amount < 5   ? Risk.HIGH :
