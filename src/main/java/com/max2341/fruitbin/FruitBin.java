@@ -19,7 +19,7 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 @Mod(modid = Reference.MODID, name = Reference.NAME, version = Reference.VERSION)
 
 public class FruitBin {
-	public static final int auctionGracePeriodMillis = 15000;
+	public static final int auctionGracePeriodMillis = 19800;
 	public static boolean isTesting = false;
 	public static Risk maxRisk = Risk.HIGH;
 	public static boolean showDebugMessages = true;
@@ -32,6 +32,7 @@ public class FruitBin {
 	public static final String url = "https://api.hypixel.net/skyblock/auctions";
 	public static String whatAmIDoing = "nothing";
 	public static boolean autoOpen = false;
+	public static HashMap<String, Float> itemLowestBins = null;
 
 	@EventHandler
 	public static void preInit(FMLPreInitializationEvent event) {
@@ -48,11 +49,9 @@ public class FruitBin {
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 		executor.schedule(everything, 10, TimeUnit.SECONDS);
 	}
-
 	static Runnable everything = new Runnable() {
 		public void run() {
 //			Utils.prevAuctions = Utils.initializeAuctions(url);
-			HashMap<String, Float> itemLowestBins = null;
 			try {
 				itemLowestBins = Utils.initializeAuctions(url);
 			} catch (Exception e) {

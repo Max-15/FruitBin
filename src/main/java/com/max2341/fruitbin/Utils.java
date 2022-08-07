@@ -37,8 +37,18 @@ import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
+import scala.tools.nsc.doc.model.Public;
 
 public class Utils {
+	//<auctionBidIncrements> Key: auction highest bids equal to or above this amount will have <Value>% bid increments. 
+	public static HashMap<Long, Float>auctionBidIncrements = new HashMap<Long, Float>(){{
+	    put(10000000l, 2.5f);
+	    put(1000000l, 5f);
+	    put(100000l, 10f);
+	    put(0l, 15f);
+	}};
+	public static boolean isFindAuctionToBINFlipsRunning = false;
+	public static int findAuctionToBINFlipsPage = 0;
 	public static Set<Character> numbers = new HashSet<Character>(Arrays.asList(new Character[] {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}));
 	public static Set<Character> letters = new HashSet<Character>(Arrays.asList(new Character[] {' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'}));
 	public static HashMap<String, Integer> itemAmounts = new HashMap<String, Integer>();
@@ -72,38 +82,50 @@ public class Utils {
 		else  System.out.println("null");
 	}
 	
-	public static void sendFlip(AuctionInfo auctionInfo) {
+	public static void sendFlip(AuctionInfo auctionInfo, boolean isAuction) {
 		EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
 		if(player == null) {
-			print("MC player is null");
+			print("sendFlip: MC player is null");
 			return;
 		}
-		boolean gracePeriodOver = System.currentTimeMillis() >= auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis;
 		ChatFormatting itemColor = Utils.getColorByRarity(auctionInfo.auction.tier);
 		ChatFormatting riskColor = auctionInfo.risk == Risk.NO ? ChatFormatting.AQUA : auctionInfo.risk == Risk.LOW ? ChatFormatting.GREEN : auctionInfo.risk == Risk.MEDIUM ? ChatFormatting.GRAY : ChatFormatting.GRAY;
-		String timestampText = ChatFormatting.DARK_GRAY + (Math.round((float)(System.currentTimeMillis() - auctionInfo.auction.start)/1000f * 100)/100 + "s ago ");
-		if(!gracePeriodOver)
-			timestampText = "§6§lSNIPE! ";
-		IChatComponent comp = new ChatComponentText(
-				timestampText + ChatFormatting.RESET + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
-				" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " 
-				+ riskColor + auctionInfo.amountListed + " listed (" + auctionInfo.risk.toString().toLowerCase() + " risk)");
-		ChatStyle style = Utils.createClickStyle(ClickEvent.Action.RUN_COMMAND, "/viewauction " + auctionInfo.auction.uuid);
-		comp.setChatStyle(style);
-		if(gracePeriodOver){
-			player.addChatMessage(comp);
-			
-			if(FruitBin.autoOpen) {
-				final GuiScreen guiScreen = Minecraft.getMinecraft().currentScreen;
-				if(player != null && (guiScreen == null || guiScreen instanceof GuiChat))
-					player.sendChatMessage("/viewauction " + auctionInfo.auction.uuid);
+		if(!isAuction) {
+			boolean gracePeriodOver = System.currentTimeMillis() >= auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis;
+			String timestampText = ChatFormatting.DARK_GRAY + (Math.round((float)(System.currentTimeMillis() - auctionInfo.auction.start)/1000f * 100)/100 + "s ago ");
+			if(!gracePeriodOver)
+				timestampText = "§6§lSNIPE! ";
+			IChatComponent comp = new ChatComponentText(
+					timestampText + itemColor + auctionInfo.auction.item_name + " " + ChatFormatting.WHITE + Utils.GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + ChatFormatting.GOLD + 
+					" [" + String.format("%,d", auctionInfo.profit) + " coins]" + (auctionInfo.profitPercent >= 50 ? ChatFormatting.AQUA : ChatFormatting.GRAY) +" [" + auctionInfo.profitPercent + "%] " 
+					+ riskColor + auctionInfo.amountListed + " listed (" + auctionInfo.risk.toString().toLowerCase() + " risk)");
+			ChatStyle style = Utils.createClickStyle(ClickEvent.Action.RUN_COMMAND, "/viewauction " + auctionInfo.auction.uuid);
+			comp.setChatStyle(style);
+			if(gracePeriodOver){
+				player.addChatMessage(comp);
+				
+				if(FruitBin.autoOpen) {
+					final GuiScreen guiScreen = Minecraft.getMinecraft().currentScreen;
+					if(player != null && (guiScreen == null || guiScreen instanceof GuiChat))
+						player.sendChatMessage("/viewauction " + auctionInfo.auction.uuid);
+				}
+				
+			} else {
+				ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+				executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 			}
-			
+			print("FOUND FLIP! " + auctionInfo.auction.item_name + " " + auctionInfo.price + " -> " + auctionInfo.lowestBin);
 		} else {
-			ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+			float bidUnder = auctionInfo.lowestBin * (1 - (auctionInfo.lowestBin >= 1000000 ? auctionCollectTax : 0));
+			String timestampText = ChatFormatting.DARK_GRAY + ("Ends in " + ChatFormatting.RESET + Math.round((float)(auctionInfo.auction.end - System.currentTimeMillis())/100f) + "s ");
+			IChatComponent comp = new ChatComponentText(timestampText + itemColor + auctionInfo.auction.item_name + " " +
+					ChatFormatting.RESET + GetAbbreviatedFloat(auctionInfo.price) + " -> " + Utils.GetAbbreviatedFloat(auctionInfo.lowestBin) + 
+					ChatFormatting.DARK_GRAY + " Bid under " + ChatFormatting.YELLOW + Utils.GetAbbreviatedFloat(bidUnder) + ChatFormatting.DARK_GRAY + " to make profit");
+			
+			ChatStyle style = Utils.createClickStyle(ClickEvent.Action.RUN_COMMAND, "/viewauction " + auctionInfo.auction.uuid);
+			comp.setChatStyle(style);
+			player.addChatMessage(comp);
 		}
-		print("FOUND FLIP! " + auctionInfo.auction.item_name + " " + auctionInfo.price + " -> " + auctionInfo.lowestBin);
 	}
 	//Minecraft.getMinecraft().thePlayer.currentScreen == null
 	public static long GetUnabbreviatedString(String string) {
@@ -127,7 +149,7 @@ public class Utils {
 		if(number >= 1000000000) 
 			return df.format(Math.round(number / 1000000f)/1000f) + "B";	
 		else if(number >= 1000000) 
-			return df.format(Math.round(number / 10000f)/100f) + "M";
+			return df.format(Math.round(number / 1000f)/1000f) + "M";
 		else if(number >= 1000) 
 			return df.format(Math.round(number / 100f)/10f) + "K";
 		else
@@ -236,7 +258,95 @@ public class Utils {
 		sellPrice = sellPrice * (1 - auctionListTax - ((sellPrice >= 1000000) ? auctionCollectTax : 0)) - 100;
 		return ((sellPrice / buyPrice) - 1) * 100;
 	}
-	
+	public static float getBidIncrement(float highestBid) {
+		//returns bid increment as multiplier(1.025, 1.15) format
+		float bidIncrementPercent = 0;
+		for(long minAuctionHighestBid : auctionBidIncrements.keySet()) {
+			if(highestBid >= minAuctionHighestBid) {
+				bidIncrementPercent = Math.max(auctionBidIncrements.get(minAuctionHighestBid), bidIncrementPercent);
+			}
+		}
+		return 1 + (bidIncrementPercent / 100f);
+	}
+	public static void findAuctionToBINFlips(HashMap<String, Float> itemLowestBins, int maxEndingTimeMs){
+		if(itemLowestBins == null) {
+			quickChatMsg("FruitBin does not know lowest BIN prices, wait until it initializes.", ChatFormatting.RED);
+			return;
+		}
+		isFindAuctionToBINFlipsRunning = true;
+		long startTime = System.currentTimeMillis();
+		List<AuctionInfo> result = new ArrayList<AuctionInfo>();
+		int auctionsChecked = 0;
+		Gson gson = new Gson();
+
+		int totalPages = 1;
+		int totalFlips = 0;
+		try {
+			for(int page = 0; page < totalPages; page++) {
+				findAuctionToBINFlipsPage = page;
+				String newjson = Utils.getHTML(FruitBin.url + "?page=" + page);
+				Auctions auctions = gson.fromJson(newjson, Auctions.class);
+					
+				totalPages = auctions.totalPages;
+					
+				if(page == 0) {
+					if(FruitBin.showDebugMessages)
+						quickChatMsg("Started searching for ending soon auction flips (This can take a while)", ChatFormatting.GREEN);
+				}				
+				for (AuctionItem auction : auctions.auctions) {
+					if(auction.bin)
+						continue;
+					auctionsChecked++;
+					NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
+					
+					float itemPrice = Math.max(auction.starting_bid, auction.highest_bid_amount);
+					if(auction.highest_bid_amount != 0)/*means there are bids on item*/ {
+						itemPrice = itemPrice * getBidIncrement(auction.highest_bid_amount);
+					}
+						
+					if (itemPrice <= FruitBin.budget && !auction.claimed && (auction.end - System.currentTimeMillis() < maxEndingTimeMs)) {
+						//HashMap<String, Integer> enchantments = (HashMap<String, Integer>) extraInfo.get("enchantments");
+						String myID = getMyID(extraInfo);
+							
+						float lowestBin;
+						if(itemLowestBins.containsKey(myID))
+							lowestBin = itemLowestBins.get(myID);
+						else 
+							lowestBin = Float.MIN_VALUE;
+							
+						int profit = (int)getProfit(itemPrice, lowestBin);
+							
+						float profitPercent = getProfitPercent(itemPrice, lowestBin);
+						if (profit >= FruitBin.minProfit && profitPercent >= FruitBin.minProfitPercent && !auction.item_lore.contains("§8Furniture")) {
+						final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
+						final Risk risk =
+							amount < 10   ? Risk.HIGH :
+							amount < 20  ? Risk.MEDIUM :
+							amount < 100 ? Risk.LOW :
+										           Risk.NO;
+							if (risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
+								AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), itemPrice, itemLowestBins.get(myID), amount, risk);
+								totalFlips++;
+								sendFlip(info, true);
+							}
+						}
+					}
+				}
+			}
+			
+			if(FruitBin.showDebugMessages) {
+				quickChatMsg("Searched through " + auctionsChecked + " auctions in " 
+						+ (float)(System.currentTimeMillis() - startTime) / 1000f + "s and found " + totalFlips + " flips", ChatFormatting.DARK_GREEN);
+			}
+			isFindAuctionToBINFlipsRunning = false;
+		} catch (Exception e) {
+			isFindAuctionToBINFlipsRunning = false;
+			if(FruitBin.showDebugMessages)
+				quickChatMsg("EXCEPTION: " + e, ChatFormatting.RED);
+			print("EXCEPTION: " + e);
+			e.printStackTrace();
+		}
+	}
 	public static HashMap<String, Float> scan(String url, long budget, int minProfit, HashMap<String, Float> itemLowestBins) {
 		List<AuctionInfo> result = new ArrayList<AuctionInfo>();
 		long newLastUpdated = 0;
@@ -268,14 +378,6 @@ public class Utils {
 						if(FruitBin.showDebugMessages)
 							quickChatMsg("Started Filtering " + (System.currentTimeMillis() - newAuctions.lastUpdated + "ms late"), ChatFormatting.GREEN);
 					}				
-					for (AuctionItem auction: newAuctions.auctions) {
-						if (auction.bin) {
-							final String myId = getMyID(NBTReader.readBase64(auction.item_bytes));
-							Float lowestBin = itemLowestBins.get(myId);
-							if (lowestBin == null)
-								lowestBin = Float.NEGATIVE_INFINITY;
-						}	
-					}
 					for (AuctionItem auction : newAuctions.auctions) {
 						auctionsChecked++;
 						if(auction.bin) {
@@ -305,7 +407,7 @@ public class Utils {
 							if (profit >= minProfit && profitPercent >= FruitBin.minProfitPercent && !auction.item_lore.contains("§8Furniture")) {
 								final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
 								final Risk risk =
-									amount < 5   ? Risk.HIGH :
+									amount < 10   ? Risk.HIGH :
 									amount < 20  ? Risk.MEDIUM :
 									amount < 100 ? Risk.LOW :
 										           Risk.NO;
@@ -320,7 +422,7 @@ public class Utils {
 	//									Minecraft.getMinecraft().getSoundHandler().playSound(sound);
 	//								}
 									totalFlips++;
-									sendFlip(info);
+									sendFlip(info, false);
 								}
 							}
 						}

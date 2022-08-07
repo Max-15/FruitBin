@@ -1,32 +1,57 @@
 package com.max2341.fruitbin;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import com.max2341.fruitbin.Utils.Risk;
 import com.mojang.realmsclient.gui.ChatFormatting;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.common.config.Configuration;
 
 public class Commands {
 	public Commands() {
 		ClientCommandHandler.instance.registerCommand(fruitbinCommand);
-//		ClientCommandHandler.instance.registerCommand(getFlipsCommand);
+		ClientCommandHandler.instance.registerCommand(findAuctionFlipsCommand);
 	}
-//	SimpleCommand.ProcessCommandRunnable getFlipsCommandRun = new SimpleCommand.ProcessCommandRunnable() {
-//        public void processCommand(ICommandSender sender, String[] args) {
-//        	if(args.length == 0) {
-//        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <low, medium, high, insane>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao, /fb profile <snipe, full>, <budget>"));
-//                return;
-//            }
-//        }
-//	}
+	SimpleCommand.ProcessCommandRunnable getFlipsCommandRun = new SimpleCommand.ProcessCommandRunnable() {
+        public void processCommand(ICommandSender sender, String[] args) {
+        	if(Utils.isFindAuctionToBINFlipsRunning) {
+        		sender.addChatMessage(new ChatComponentText(ChatFormatting.GREEN + "Already searching, on page " + Utils.findAuctionToBINFlipsPage));
+        		return;
+        	}
+        	if(args.length == 0) {
+    			ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    			executorService.schedule(getAuctionToBINFlips(120000), 1, TimeUnit.MILLISECONDS);
+            } else if(args.length == 1){
+            	ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    			executorService.schedule(getAuctionToBINFlips(Math.round(Float.parseFloat(args[0]) * 1000)), 1, TimeUnit.MILLISECONDS);
+            } else {
+            	sender.addChatMessage(new ChatComponentText(ChatFormatting.RED + "Invalid arguments! Try /flips <maxAuctionEndingTime> or /flips"));
+        		return;
+            }
+        }
+	};
+		private static Runnable getAuctionToBINFlips(int maxEndingTimeMs) {
+			return new Runnable(){
+				public void run() {
+					Utils.findAuctionToBINFlips(FruitBin.itemLowestBins, maxEndingTimeMs);
+				}
+			};
+		};
 	SimpleCommand.ProcessCommandRunnable fruitbinCommandRun = new SimpleCommand.ProcessCommandRunnable() {
         public void processCommand(ICommandSender sender, String[] args) {
         	if(args.length == 0 || args[0].equalsIgnoreCase("help")) {
-        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"Usage: /fb budget <long>, /fb minprofit <int>, /fb minprofit% <int>, /fb delay <seconds>, /fb maxrisk <low, medium, high, insane>, /fb info, /fb toggle, /fb debug, /fb what, /fb ao, /fb profile <snipe, full>, <budget>"));
+        		sender.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA+"/flips, /flips <maxAuctionEndingTime> /ahf budget <long>, /ahf minprofit <int>, /ahf minprofit% <int>, /ahf delay <seconds>, /ahf maxrisk <low, medium, high, insane>, /ahf info, /ahf toggle, /ahf debug, /ahf what, /ahf ao, /ahf profile <snipe, full>, <budget>"));
                 return;
             }
         	if(args[0].equalsIgnoreCase("budget")) {
@@ -109,8 +134,8 @@ public class Commands {
             		FruitBin.budget = Utils.GetUnabbreviatedString(args[2]);
             		FruitBin.autoOpen = true;
             		FruitBin.minProfit = 2500000;
-            		FruitBin.minProfitPercent = 90;
-            		FruitBin.maxRisk = Risk.HIGH;
+            		FruitBin.minProfitPercent = 50;
+            		FruitBin.maxRisk = Risk.MEDIUM;
             		FruitBin.on = true;
             	} else if (args[1].equalsIgnoreCase("full")) {
             		FruitBin.budget = Utils.GetUnabbreviatedString(args[2]);
@@ -127,6 +152,6 @@ public class Commands {
             }
         }
     };
-//    SimpleCommand getFlipsCommand = new SimpleCommand("flips", getFlipsCommandRun);
-	SimpleCommand fruitbinCommand = new SimpleCommand("fb", fruitbinCommandRun);
+    SimpleCommand findAuctionFlipsCommand = new SimpleCommand("flips", getFlipsCommandRun);
+	SimpleCommand fruitbinCommand = new SimpleCommand("ahf", fruitbinCommandRun);
 }
