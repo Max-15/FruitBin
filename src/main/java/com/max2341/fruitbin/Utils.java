@@ -101,7 +101,7 @@ public class Utils {
 			
 		} else {
 			ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis() + Math.round((Math.random() / 4.215 + 0.381) * 1000), TimeUnit.MILLISECONDS);
+			executorService.schedule(sendFlipRunnable(comp, auctionInfo.auction.uuid), (auctionInfo.auction.start + FruitBin.auctionGracePeriodMillis) - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 		}
 		print("FOUND FLIP! " + auctionInfo.auction.item_name + " " + auctionInfo.price + " -> " + auctionInfo.lowestBin);
 	}
