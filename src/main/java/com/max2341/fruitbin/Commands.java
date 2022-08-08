@@ -44,7 +44,7 @@ public class Commands {
 		private static Runnable getAuctionToBINFlips(int maxEndingTimeMs) {
 			return new Runnable(){
 				public void run() {
-					Utils.findAuctionToBINFlips(FruitBin.itemLowestBins, maxEndingTimeMs);
+					Utils.findAuctionFlips(FruitBin.itemLowestBins, maxEndingTimeMs);
 				}
 			};
 		};

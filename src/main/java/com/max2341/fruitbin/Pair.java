@@ -15,5 +15,19 @@ public class Pair<T,S> {
 	public S getValue() {
 		return value;
 	}
+	public T getLowerFloat() {
+		if((float)key <= (float)value) {
+			return key;
+		} else {
+			return (T)value;
+		}
+	}
+	public T getHigherFloat() {
+		if((float)key >= (float)value) {
+			return key;
+		} else {
+			return (T)value;
+		}
+	}
 
 }

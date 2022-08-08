@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -32,6 +33,7 @@ import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.event.ClickEvent;
 import net.minecraft.event.HoverEvent;
+import net.minecraft.scoreboard.GoalColor;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
@@ -268,7 +270,7 @@ public class Utils {
 		}
 		return 1 + (bidIncrementPercent / 100f);
 	}
-	public static void findAuctionToBINFlips(HashMap<String, Float> itemLowestBins, int maxEndingTimeMs){
+	public static void findAuctionFlips(HashMap<String, Float> itemLowestBins, int maxEndingTimeMs){
 		if(itemLowestBins == null) {
 			quickChatMsg("FruitBin does not know lowest BIN prices, wait until it initializes.", ChatFormatting.RED);
 			return;
@@ -276,6 +278,8 @@ public class Utils {
 		isFindAuctionToBINFlipsRunning = true;
 		long startTime = System.currentTimeMillis();
 		List<AuctionInfo> result = new ArrayList<AuctionInfo>();
+		HashMap<String, Integer> binAmounts = new HashMap<String, Integer>();
+		HashMap<String, Pair<AuctionItem, AuctionItem>>itemLowestTwoBins = new HashMap<String, Pair<AuctionItem, AuctionItem>>();
 		int auctionsChecked = 0;
 		Gson gson = new Gson();
 
@@ -291,13 +295,38 @@ public class Utils {
 					
 				if(page == 0) {
 					if(FruitBin.showDebugMessages)
-						quickChatMsg("Started searching for ending soon auction flips (This can take a while)", ChatFormatting.GREEN);
+						quickChatMsg("Started searching for flips (This can take a while)", ChatFormatting.DARK_GREEN);
 				}				
 				for (AuctionItem auction : auctions.auctions) {
-					if(auction.bin)
-						continue;
+					String myID = getMyID(NBTReader.readBase64(auction.item_bytes));
 					auctionsChecked++;
-					NBTCompound extraInfo = NBTReader.readBase64(auction.item_bytes);
+					if(auction.bin) {
+						//logic to find two lowest bins
+						
+						Integer previousAmount = binAmounts.get(myID);
+						binAmounts.put(myID, previousAmount == null ? 1 : previousAmount + 1);
+						
+						Float price = auction.starting_bid;
+						/*NULLPOINTEREXCEPTION!*/   AuctionItem key = itemLowestTwoBins.get(myID).key;
+						Float keyPrice = 0f;
+						if(key == null) 
+							keyPrice = Float.POSITIVE_INFINITY;
+						else 
+							keyPrice = key.starting_bid;
+						AuctionItem value = itemLowestTwoBins.get(myID).value;
+						Float valuePrice = 0f;
+						if(value == null)
+							valuePrice = Float.POSITIVE_INFINITY;
+						else 
+							valuePrice = value.starting_bid;
+						
+						if(price < keyPrice || price < valuePrice) {
+							if(keyPrice >= valuePrice)
+								itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(auction, value));
+							else 
+								itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(key, auction));
+						}
+					}
 					
 					float itemPrice = Math.max(auction.starting_bid, auction.highest_bid_amount);
 					if(auction.highest_bid_amount != 0)/*means there are bids on item*/ {
@@ -305,9 +334,7 @@ public class Utils {
 					}
 						
 					if (itemPrice <= FruitBin.budget && !auction.claimed && (auction.end - System.currentTimeMillis() < maxEndingTimeMs)) {
-						//HashMap<String, Integer> enchantments = (HashMap<String, Integer>) extraInfo.get("enchantments");
-						String myID = getMyID(extraInfo);
-							
+
 						float lowestBin;
 						if(itemLowestBins.containsKey(myID))
 							lowestBin = itemLowestBins.get(myID);
@@ -319,11 +346,7 @@ public class Utils {
 						float profitPercent = getProfitPercent(itemPrice, lowestBin);
 						if (profit >= FruitBin.minProfit && profitPercent >= FruitBin.minProfitPercent && !auction.item_lore.contains("§8Furniture")) {
 						final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
-						final Risk risk =
-							amount < 10   ? Risk.HIGH :
-							amount < 20  ? Risk.MEDIUM :
-							amount < 100 ? Risk.LOW :
-										           Risk.NO;
+						final Risk risk = getRiskFromAmount(amount);
 							if (risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
 								AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), itemPrice, itemLowestBins.get(myID), amount, risk);
 								totalFlips++;
@@ -332,6 +355,16 @@ public class Utils {
 						}
 					}
 				}
+			}
+			for(String id : binAmounts.keySet()) {
+				AuctionItem lowerAuction = itemLowestTwoBins.get(id).getLowerFloat();
+				AuctionItem higherAuction = itemLowestTwoBins.get(id).getHigherFloat();
+				long profit = Math.round(getProfit(lowerAuction.starting_bid, higherAuction.starting_bid));
+				float profitPercent = getProfitPercent(lowerAuction.starting_bid, higherAuction.starting_bid);
+				final int amount = binAmounts.get(id);
+				final Risk risk = getRiskFromAmount(amount);
+				AuctionInfo info = new AuctionInfo(lowerAuction, profit, Math.round(profitPercent), lowerAuction.starting_bid, higherAuction.starting_bid, amount, risk);
+				sendFlip(info, false);
 			}
 			
 			if(FruitBin.showDebugMessages) {
@@ -406,11 +439,7 @@ public class Utils {
 							float profitPercent = getProfitPercent(auction.starting_bid, minPrice);
 							if (profit >= minProfit && profitPercent >= FruitBin.minProfitPercent && !auction.item_lore.contains("§8Furniture")) {
 								final int amount = itemAmounts.containsKey(myID) ? itemAmounts.get(myID) : 0;
-								final Risk risk =
-									amount < 10   ? Risk.HIGH :
-									amount < 20  ? Risk.MEDIUM :
-									amount < 100 ? Risk.LOW :
-										           Risk.NO;
+								final Risk risk = getRiskFromAmount(amount);
 								if (risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
 									AuctionInfo info = new AuctionInfo(auction, profit, Math.round(profitPercent), auction.starting_bid, itemLowestBins.get(myID), amount, risk);
 									if(info.profit > bestAuctionIDAndProfit.value) {
@@ -457,6 +486,13 @@ public class Utils {
 			e.printStackTrace();
 		}
 		return itemLowestBins;
+	}
+	public static Risk getRiskFromAmount(int amount) {
+		return
+			amount < 10   ? Risk.HIGH :
+			amount < 20   ? Risk.MEDIUM :
+			amount < 100  ? Risk.LOW :
+					        Risk.NO;
 	}
 	public static void openBestAuction() {
 		EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
