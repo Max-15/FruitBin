@@ -307,27 +307,41 @@ public class Utils {
 						binAmounts.put(myID, previousAmount == null ? 1 : previousAmount + 1);
 						
 						Float price = auction.starting_bid;
-						/*NULLPOINTEREXCEPTION!*/   AuctionItem key = itemLowestTwoBins.get(myID).key;
+						Pair<AuctionItem, AuctionItem> pair = itemLowestTwoBins.get(myID);
 						Float keyPrice = 0f;
-						if(key == null) 
-							keyPrice = Float.POSITIVE_INFINITY;
-						else 
-							keyPrice = key.starting_bid;
-						AuctionItem value = itemLowestTwoBins.get(myID).value;
 						Float valuePrice = 0f;
-						if(value == null)
-							valuePrice = Float.POSITIVE_INFINITY;
-						else 
-							valuePrice = value.starting_bid;
-						
-						if(price < keyPrice || price < valuePrice) {
-							if(keyPrice >= valuePrice)
-								itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(auction, value));
+						if(pair != null) {
+							AuctionItem key = pair.key;
+							
+							if(key == null) 
+								keyPrice = Float.POSITIVE_INFINITY;
 							else 
-								itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(key, auction));
+								keyPrice = key.starting_bid;
+							AuctionItem value = itemLowestTwoBins.get(myID).value;
+							
+							if(value == null)
+								valuePrice = Float.POSITIVE_INFINITY;
+							else 
+								valuePrice = value.starting_bid;
+							if(price < keyPrice || price < valuePrice) {
+								if(keyPrice >= valuePrice)
+									itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(auction, value));
+								else 
+									itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(key, auction));
+							}
+
+						} else {
+							keyPrice = Float.POSITIVE_INFINITY;
+							valuePrice = Float.POSITIVE_INFINITY;
+							if(price < keyPrice || price < valuePrice) {
+								if(keyPrice >= valuePrice)
+									itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(auction, null));
+								else 
+									itemLowestTwoBins.put(myID, new Pair<AuctionItem, AuctionItem>(null, auction));
+							}
+
 						}
 					}
-					
 					float itemPrice = Math.max(auction.starting_bid, auction.highest_bid_amount);
 					if(auction.highest_bid_amount != 0)/*means there are bids on item*/ {
 						itemPrice = itemPrice * getBidIncrement(auction.highest_bid_amount);
@@ -357,14 +371,18 @@ public class Utils {
 				}
 			}
 			for(String id : binAmounts.keySet()) {
-				AuctionItem lowerAuction = itemLowestTwoBins.get(id).getLowerFloat();
-				AuctionItem higherAuction = itemLowestTwoBins.get(id).getHigherFloat();
+				if(itemLowestTwoBins.get(id).key == null || itemLowestTwoBins.get(id).value == null)
+					continue;
+				AuctionItem lowerAuction = itemLowestTwoBins.get(id).getLowerFloatBINAuction();
+				AuctionItem higherAuction = itemLowestTwoBins.get(id).getHigherFloatBINAuction();
 				long profit = Math.round(getProfit(lowerAuction.starting_bid, higherAuction.starting_bid));
 				float profitPercent = getProfitPercent(lowerAuction.starting_bid, higherAuction.starting_bid);
 				final int amount = binAmounts.get(id);
 				final Risk risk = getRiskFromAmount(amount);
-				AuctionInfo info = new AuctionInfo(lowerAuction, profit, Math.round(profitPercent), lowerAuction.starting_bid, higherAuction.starting_bid, amount, risk);
-				sendFlip(info, false);
+				if(profit >= FruitBin.minProfit && profitPercent >= FruitBin.minProfitPercent && risk.ordinal() <= FruitBin.maxRisk.ordinal()) {
+					AuctionInfo info = new AuctionInfo(lowerAuction, profit, Math.round(profitPercent), lowerAuction.starting_bid, higherAuction.starting_bid, amount, risk);
+					sendFlip(info, false);
+				}
 			}
 			
 			if(FruitBin.showDebugMessages) {
