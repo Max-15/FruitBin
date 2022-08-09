@@ -139,10 +139,10 @@ public class Commands {
             		FruitBin.on = true;
             	} else if (args[1].equalsIgnoreCase("full")) {
             		FruitBin.budget = Utils.GetUnabbreviatedString(args[2]);
-            		FruitBin.autoOpen = false;
+            		FruitBin.autoOpen = true;
             		FruitBin.minProfit = 250000;
-            		FruitBin.minProfitPercent = 5;
-            		FruitBin.maxRisk = Risk.HIGH;
+            		FruitBin.minProfitPercent = 20;
+            		FruitBin.maxRisk = Risk.MEDIUM;
             		FruitBin.on = true;
             	} else {
                 	sender.addChatMessage(new ChatComponentText(ChatFormatting.RED + "Invalid profile: " + args[1].toUpperCase() + "."));

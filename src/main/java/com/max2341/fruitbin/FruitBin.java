@@ -19,7 +19,7 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 @Mod(modid = Reference.MODID, name = Reference.NAME, version = Reference.VERSION)
 
 public class FruitBin {
-	public static final int auctionGracePeriodMillis = 19800;
+	public static final int auctionGracePeriodMillis = 15000;
 	public static boolean isTesting = false;
 	public static Risk maxRisk = Risk.HIGH;
 	public static boolean showDebugMessages = true;
@@ -49,6 +49,14 @@ public class FruitBin {
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 		executor.schedule(everything, 10, TimeUnit.SECONDS);
 	}
+	public static boolean skyblockCheck() {
+		String s = Utils.getScoreBoardTitle();
+		boolean isInSkyblock = Utils.removeAllCodes(s).toLowerCase().contains("skyblock");
+		if(!isInSkyblock && !isTesting) {
+			whatAmIDoing = "not in skyblock - detected";
+		}
+		return isInSkyblock && !isTesting;
+	}
 	static Runnable everything = new Runnable() {
 		public void run() {
 //			Utils.prevAuctions = Utils.initializeAuctions(url);
@@ -62,8 +70,7 @@ public class FruitBin {
 			while (true) {
 				try {
 					whatAmIDoing = "nothing in while loop";
-					if (on && Minecraft.getMinecraft().theWorld != null
-							|| Minecraft.getMinecraft().isSingleplayer() == false || isTesting) {
+					if (on && Minecraft.getMinecraft().theWorld != null && skyblockCheck()) {
 						whatAmIDoing = "scanning for flips";
 						HashMap<String, Float> lowestBins = Utils.scan(url, budget, minProfit, itemLowestBins);
 						if (lowestBins != null) {
@@ -74,8 +81,10 @@ public class FruitBin {
 							whatAmIDoing = "sleeping after api check";
 							Thread.sleep((int) (sleepSecondsBetweenApiUpdateChecks * 1000));
 						}
+						if (!skyblockCheck() || !on)
+							continue;
 					} else {
-						whatAmIDoing = "sleeping after on world or toggled check";
+						whatAmIDoing = "not in skyblock or turned off, sleeping";
 						Thread.sleep((2 * 1000));
 					}
 				} catch (Throwable e) {
